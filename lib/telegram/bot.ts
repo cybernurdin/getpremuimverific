@@ -12,28 +12,38 @@ export interface TelegramMessagePayload {
 export async function processTelegramMessage(payload: TelegramMessagePayload): Promise<string> {
   const text = (payload.text || '').trim()
   const lowerText = text.toLowerCase()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://getpremuimverific.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://premiumverific.com'
 
-  // 1. /START OR /MENU COMMAND
-  const greetings = ['/start', 'start', '/menu', 'menu', '/help', 'help', 'hi', 'hello', 'yo', 'hey', 'hallo', 'hola']
-  if (greetings.includes(lowerText)) {
+  // 1. /START OR /MENU OR GREETING COMMAND
+  const isGreeting = 
+    lowerText.startsWith('/start') || 
+    lowerText.startsWith('/menu') || 
+    lowerText.startsWith('/help') || 
+    lowerText.startsWith('hi') || 
+    lowerText.startsWith('hello') || 
+    lowerText.startsWith('yo') || 
+    lowerText.startsWith('hey') ||
+    lowerText.includes('start') ||
+    lowerText.includes('menu')
+
+  if (isGreeting) {
     return (
-      `👋 *Welcome to Premium Verify Telegram Bot!* (@getpremuimverific_bot)\n\n` +
+      `👋 <b>Welcome to Premium Verify Telegram Bot!</b> (@getpremuimverific_bot)\n\n` +
       `I am your automated assistant for SMS verification numbers, social media growth, and instant wallet funding.\n\n` +
-      `🤖 *Available Commands:*\n\n` +
-      `1️⃣ *Buy SMS Verification Number*\n` +
-      `   Command: \`/sms <service> <country>\`\n` +
-      `   *Example:* \`/sms wa US\` (WhatsApp US Number)\n` +
-      `   *Example:* \`/sms tg GB\` (Telegram UK Number)\n\n` +
-      `2️⃣ *Place SMM Panel Order*\n` +
-      `   Command: \`/smm <service_id> <link> <quantity>\`\n` +
-      `   *Example:* \`/smm 101 https://instagram.com/myprofile 1000\`\n\n` +
-      `3️⃣ *Top up Wallet (Payunit - MoMo, OM, Card, PayPal)*\n` +
-      `   Command: \`/pay <amount_xaf>\`\n` +
-      `   *Example:* \`/pay 5000\`\n\n` +
-      `4️⃣ *Check Account Balance*\n` +
-      `   Command: \`/balance\`\n\n` +
-      `🌐 *Web Portal:* ${appUrl}`
+      `🤖 <b>Available Commands:</b>\n\n` +
+      `1️⃣ <b>Buy SMS Verification Number</b>\n` +
+      `   Command: <code>/sms &lt;service&gt; &lt;country&gt;</code>\n` +
+      `   <i>Example:</i> <code>/sms wa US</code> (WhatsApp US Number)\n` +
+      `   <i>Example:</i> <code>/sms tg GB</code> (Telegram UK Number)\n\n` +
+      `2️⃣ <b>Place SMM Panel Order</b>\n` +
+      `   Command: <code>/smm &lt;service_id&gt; &lt;link&gt; &lt;quantity&gt;</code>\n` +
+      `   <i>Example:</i> <code>/smm 101 https://instagram.com/myprofile 1000</code>\n\n` +
+      `3️⃣ <b>Top up Wallet (Payunit - MoMo, OM, Card, PayPal)</b>\n` +
+      `   Command: <code>/pay &lt;amount_xaf&gt;</code>\n` +
+      `   <i>Example:</i> <code>/pay 5000</code>\n\n` +
+      `4️⃣ <b>Check Account Balance</b>\n` +
+      `   Command: <code>/balance</code>\n\n` +
+      `🌐 <b>Web Portal:</b> ${appUrl}`
     )
   }
 
@@ -53,12 +63,12 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
       const data = await res.json()
       if (res.ok && data.phone) {
         return (
-          `✅ *SMS Virtual Number Allocated!*\n\n` +
-          `📱 *Phone Number:* \`${data.phone}\`\n` +
-          `🏷️ *Service:* ${service.toUpperCase()}\n` +
-          `🌍 *Country:* ${country}\n` +
-          `🆔 *Order ID:* ${data.id}\n\n` +
-          `⏳ *Status:* Waiting for SMS Code...\n` +
+          `✅ <b>SMS Virtual Number Allocated!</b>\n\n` +
+          `📱 <b>Phone Number:</b> <code>${data.phone}</code>\n` +
+          `🏷️ <b>Service:</b> ${service.toUpperCase()}\n` +
+          `🌍 <b>Country:</b> ${country}\n` +
+          `🆔 <b>Order ID:</b> ${data.id}\n\n` +
+          `⏳ <b>Status:</b> Waiting for SMS Code...\n` +
           `Check SMS arrival at ${appUrl}/sms-verification`
         )
       } else {
@@ -73,7 +83,7 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
   if (lowerText.startsWith('/smm ') || lowerText.startsWith('smm ')) {
     const parts = text.split(' ').filter(Boolean)
     if (parts.length < 4) {
-      return `⚠️ *Invalid Format!*\nUse: \`/smm <service_id> <link> <quantity>\`\n*Example:* \`/smm 101 https://instagram.com/user 1000\``
+      return `⚠️ <b>Invalid Format!</b>\nUse: <code>/smm &lt;service_id&gt; &lt;link&gt; &lt;quantity&gt;</code>\n<i>Example:</i> <code>/smm 101 https://instagram.com/user 1000</code>`
     }
 
     const service_id = Number(parts[1])
@@ -90,12 +100,12 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
       const data = await res.json()
       if (res.ok && data.order) {
         return (
-          `🚀 *SMM Order Placed Successfully!*\n\n` +
-          `📦 *Order Ref:* #${data.order}\n` +
-          `🎯 *Service ID:* ${service_id}\n` +
-          `🔗 *Target Link:* ${link}\n` +
-          `📊 *Quantity:* ${quantity.toLocaleString()}\n` +
-          `⚡ *Status:* Processing\n\n` +
+          `🚀 <b>SMM Order Placed Successfully!</b>\n\n` +
+          `📦 <b>Order Ref:</b> #${data.order}\n` +
+          `🎯 <b>Service ID:</b> ${service_id}\n` +
+          `🔗 <b>Target Link:</b> ${link}\n` +
+          `📊 <b>Quantity:</b> ${quantity.toLocaleString()}\n` +
+          `⚡ <b>Status:</b> Processing\n\n` +
           `Track updates at ${appUrl}/smm-panel`
         )
       } else {
@@ -122,11 +132,11 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
       if (res.ok && data.success) {
         const checkoutUrl = data.payment_url || `${appUrl}/add-funds`
         return (
-          `💳 *Payunit Payment Link Generated!*\n\n` +
-          `💰 *Deposit Amount:* ${amount.toLocaleString()} XAF\n` +
-          `🆔 *Transaction Ref:* ${data.reference || data.transaction_id}\n` +
-          `📱 *Channels:* MTN MoMo, Orange Money, Credit Cards, PayPal\n\n` +
-          `👉 [Click to Complete Deposit](${checkoutUrl})`
+          `💳 <b>Payunit Payment Link Generated!</b>\n\n` +
+          `💰 <b>Deposit Amount:</b> ${amount.toLocaleString()} XAF\n` +
+          `🆔 <b>Transaction Ref:</b> ${data.reference || data.transaction_id}\n` +
+          `📱 <b>Channels:</b> MTN MoMo, Orange Money, Credit Cards, PayPal\n\n` +
+          `👉 <a href="${checkoutUrl}">Click to Complete Deposit</a>`
         )
       } else {
         return `❌ Failed to generate Payunit link: ${data.error || 'Server error'}`
@@ -139,11 +149,11 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
   // 5. /BALANCE COMMAND
   if (lowerText === '/balance' || lowerText === 'balance' || lowerText === '/solde') {
     return (
-      `💼 *Premium Verify Wallet Status*\n\n` +
-      `👤 *User:* ${payload.fromName || 'Partner'}\n` +
-      `💵 *Balance:* 25,000 XAF (~$41.60 USD)\n` +
-      `⚡ *Status:* Active Member\n\n` +
-      `Type \`/pay 5000\` to deposit funds via Payunit.`
+      `💼 <b>Premium Verify Wallet Status</b>\n\n` +
+      `👤 <b>User:</b> ${payload.fromName || 'Partner'}\n` +
+      `💵 <b>Balance:</b> 25,000 XAF (~$41.60 USD)\n` +
+      `⚡ <b>Status:</b> Active Member\n\n` +
+      `Type <code>/pay 5000</code> to deposit funds via Payunit.`
     )
   }
 
@@ -158,7 +168,7 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
  * Send a message via Telegram Bot API
  */
 export async function sendTelegramMessage(chatId: number | string, text: string): Promise<boolean> {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '8838713622:AAG7_pPYAvpquaQH92JO0ebZ6iBlxa6Xxg4'
 
   if (!botToken) {
     console.warn('[Telegram Bot] TELEGRAM_BOT_TOKEN not set. Logged message:', text)
@@ -172,7 +182,7 @@ export async function sendTelegramMessage(chatId: number | string, text: string)
       body: JSON.stringify({
         chat_id: chatId,
         text: text,
-        parse_mode: 'Markdown'
+        parse_mode: 'HTML'
       })
     })
 
