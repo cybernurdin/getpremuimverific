@@ -3,6 +3,8 @@
  * Interactive multi-step guided assistant engine.
  */
 
+import { createClient } from '@supabase/supabase-js'
+
 export interface TelegramMessagePayload {
   chatId: number | string
   text: string
@@ -36,6 +38,37 @@ const CODE_TO_SERVICE: Record<string, { id: number; name: string; rate: string }
   S16: { id: 503, name: 'Facebook Post Reactions', rate: '900 XAF / 1,000' }
 }
 
+function getAppUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://getpremuimverific.vercel.app'
+  if (envUrl.includes('premiumverific.com') || envUrl.includes('premuimverific.com')) {
+    return 'https://getpremuimverific.vercel.app'
+  }
+  return envUrl
+}
+
+async function getUserBalance(identifier: string): Promise<number> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://cdfmfxfkbqlcjbesymxd.supabase.co'
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!serviceRoleKey) return 0
+
+  try {
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('balance_xaf')
+      .or(`phone_number.eq.${identifier},user_id.eq.${identifier}`)
+      .maybeSingle()
+
+    if (profile && typeof profile.balance_xaf === 'number') {
+      return profile.balance_xaf
+    }
+  } catch (err) {
+    console.warn('[Supabase Balance Fetch Error]:', err)
+  }
+  return 0
+}
+
 async function getPayunitCheckoutUrl(amount: number): Promise<string> {
   const appId = process.env.PAYUNIT_APP_ID || '6f671378-7fae-4fa0-bdee-00b32df34612'
   const apiUser = process.env.PAYUNIT_API_USER || 'cf5a33fb-6018-4258-aeb8-04887ee246b7'
@@ -44,7 +77,7 @@ async function getPayunitCheckoutUrl(amount: number): Promise<string> {
   const apiKey = mode === 'live'
     ? (process.env.PAYUNIT_LIVE_KEY || process.env.PAYUNIT_API_KEY || 'live_jpniXcJT6aXHNXujkNw9Hne3qlcLQcz2daqisYPE')
     : (process.env.PAYUNIT_API_KEY || 'sand_aA2n1kinNgZxlGY2xk1Z83JOJrFSu6')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://premiumverific.com'
+  const appUrl = getAppUrl()
   const transactionId = `PV-${Math.floor(100000 + Math.random() * 900000)}`
 
   const baseUrl = mode === 'live' 
@@ -142,7 +175,7 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
   const text = (payload.text || '').trim()
   const lowerText = text.toLowerCase()
   const chatId = String(payload.chatId)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://premiumverific.com'
+  const appUrl = getAppUrl()
 
   const session = userSessions[chatId] || { step: 'MAIN' }
 
@@ -174,10 +207,12 @@ export async function processTelegramMessage(payload: TelegramMessagePayload): P
 
   // 2. CHECK BALANCE (/balance, 4, balance)
   if (lowerText === '4' || lowerText === '/balance' || lowerText === 'balance' || lowerText === 'solde') {
+    const realBalance = await getUserBalance(chatId)
+    const usd = (realBalance / 600).toFixed(2)
     return (
       `💼 <b>Premium Verify Wallet Status</b>\n\n` +
       `👤 <b>User:</b> ${payload.fromName || 'Partner'}\n` +
-      `💵 <b>Balance:</b> 25,000 XAF (~$41.60 USD)\n` +
+      `💵 <b>Balance:</b> ${realBalance.toLocaleString()} XAF (~$${usd} USD)\n` +
       `⚡ <b>Status:</b> Active Member\n\n` +
       `To deposit funds, reply <code>3</code> or type <code>/pay 5000</code>.`
     )
