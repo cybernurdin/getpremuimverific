@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, Suspense } from 'react'
-import { Smartphone, CreditCard, DollarSign, CheckCircle2, Loader2, Zap, X, ShieldCheck, ArrowRight, AlertTriangle } from 'lucide-react'
+import { Smartphone, CreditCard, DollarSign, CheckCircle2, Loader2, Zap, X, ShieldCheck, ArrowRight, AlertTriangle, Clock, Lock } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 import { useAppState } from '@/lib/store'
 
@@ -14,9 +14,9 @@ function AddFundsContent() {
   const [amountXaf, setAmountXaf] = useState(5000)
   const [cardAmountUsd, setCardAmountUsd] = useState(10)
   const [loading, setLoading] = useState(false)
-  const [paymentMsg, setPaymentMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [paymentMsg, setPaymentMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
 
-  // Payment Modal States
+  // Payment Modal & PIN Verification States
   const [showModal, setShowModal] = useState(false)
   const [selectedChannel, setSelectedChannel] = useState<'mtn' | 'orange' | 'card' | 'paypal'>('mtn')
   const [momoPhone, setMomoPhone] = useState('')
@@ -24,6 +24,15 @@ function AddFundsContent() {
   const [cardNumber, setCardNumber] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCvv, setCardCvv] = useState('')
+
+  // Live Mobile Money PIN Authorization Screen State
+  const [pinAuthorizationState, setPinAuthorizationState] = useState<{
+    active: boolean
+    ref: string
+    phone: string
+    channel: string
+    amount: number
+  } | null>(null)
 
   const { topUpBalance, profile } = useAppState()
 
@@ -39,7 +48,7 @@ function AddFundsContent() {
     setShowModal(true)
   }
 
-  // Handle Channel Specific Payment Execution
+  // Handle Channel Payment Request Initiation
   const handleExecutePayment = async () => {
     setLoading(true)
     setPaymentMsg(null)
@@ -67,14 +76,18 @@ function AddFundsContent() {
           window.location.href = data.payment_url
           return
         }
-        topUpBalance(amountXaf, selectedChannel === 'mtn' ? 'mtn_momo' : selectedChannel === 'orange' ? 'orange_money' : 'visa_mastercard', data.reference)
-        setPaymentMsg({
-          type: 'success',
-          text: data.message || `Payment request for ${amountXaf.toLocaleString()} XAF sent successfully! Check your phone to authorize transaction.`
-        })
+
+        // Put user in live PIN Authorization State (Wait for user to enter PIN on phone)
         setShowModal(false)
+        setPinAuthorizationState({
+          active: true,
+          ref: data.reference || `PV-${Math.floor(100000 + Math.random() * 900000)}`,
+          phone: momoPhone || '+237 670 000 000',
+          channel: selectedChannel === 'mtn' ? 'MTN Mobile Money' : 'Orange Money',
+          amount: amountXaf
+        })
       } else {
-        setPaymentMsg({ type: 'error', text: data.error || 'Payment processing failed. Please try again.' })
+        setPaymentMsg({ type: 'error', text: data.error || 'Payment request failed. Please try again.' })
       }
     } catch (err: any) {
       setPaymentMsg({ type: 'error', text: err.message || 'Error connecting to payment gateway.' })
@@ -83,16 +96,89 @@ function AddFundsContent() {
     }
   }
 
+  // Verify PIN Entry & Credit Wallet
+  const handleVerifyPinAuthorization = async () => {
+    if (!pinAuthorizationState) return
+    setLoading(true)
+    try {
+      const res = await fetch(
+        `/api/payments/check-status?ref=${pinAuthorizationState.ref}&action=verify&profile_id=${profile.id}&amount=${pinAuthorizationState.amount}`
+      )
+      const data = await res.json()
+      if (res.ok && data.success) {
+        topUpBalance(pinAuthorizationState.amount, selectedChannel === 'mtn' ? 'mtn_momo' : 'orange_money', pinAuthorizationState.ref)
+        setPaymentMsg({
+          type: 'success',
+          text: `✅ Payment Authorized! ${pinAuthorizationState.amount.toLocaleString()} XAF has been credited to your wallet.`
+        })
+        setPinAuthorizationState(null)
+      } else {
+        setPaymentMsg({ type: 'error', text: 'PIN authorization not detected yet. Please check your phone.' })
+      }
+    } catch (err: any) {
+      setPaymentMsg({ type: 'error', text: 'Error verifying PIN authorization status.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       
-      {/* Insufficient Balance Redirect Notification */}
+      {/* Insufficient Balance Notification Banner */}
       {paramReason === 'insufficient_balance' && (
         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center gap-3 text-xs text-amber-900 font-semibold shadow-2xs">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
             <div className="font-extrabold text-sm">Insufficient Wallet Balance</div>
-            <div>Your balance ({profile.balance_xaf.toLocaleString()} XAF) is below the required amount. Complete your top up below to proceed with your order.</div>
+            <div>Your current balance ({profile.balance_xaf.toLocaleString()} XAF) is below the required service cost. Top up your account below to proceed.</div>
+          </div>
+        </div>
+      )}
+
+      {/* Live PIN Authorization Monitor Screen */}
+      {pinAuthorizationState?.active && (
+        <div className="p-6 md:p-8 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 space-y-5 animate-in fade-in duration-300">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-amber-500 text-white rounded-2xl shrink-0">
+              <Clock className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-gray-900">USSD Payment Request Sent to Phone</h2>
+              <p className="text-xs text-gray-600 mt-0.5">
+                We have initiated a <span className="font-bold text-amber-700">{pinAuthorizationState.amount.toLocaleString()} XAF</span> deposit via {pinAuthorizationState.channel} to <span className="font-bold">{pinAuthorizationState.phone}</span>.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white rounded-2xl border border-amber-200 space-y-2 text-xs text-gray-700">
+            <div className="flex items-center gap-2 font-bold text-gray-900">
+              <Lock className="w-4 h-4 text-amber-600" />
+              <span>Step-by-Step Authorization:</span>
+            </div>
+            <ol className="list-decimal list-inside space-y-1 text-gray-600 pl-1">
+              <li>Look at your phone screen for the Mobile Money USSD prompt.</li>
+              <li>Enter your secret 4-digit Mobile Money PIN to authorize the payment.</li>
+              <li>Once you confirm on your phone, click the button below to complete wallet funding.</li>
+            </ol>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleVerifyPinAuthorization}
+              disabled={loading}
+              className="px-6 py-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+              <span>I Have Entered My PIN (Verify Payment)</span>
+            </button>
+
+            <button
+              onClick={() => setPinAuthorizationState(null)}
+              className="px-4 py-3.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs transition"
+            >
+              Cancel Payment
+            </button>
           </div>
         </div>
       )}
@@ -102,13 +188,15 @@ function AddFundsContent() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Add Funds to Your Wallet</h1>
           <p className="text-xs text-gray-500 mt-1">
-            Top up your balance instantly using Mobile Money (MTN / Orange), Credit/Debit Card, PayPal, or USDT Crypto.
+            Top up your balance using Mobile Money (MTN / Orange), Credit/Debit Card, PayPal, or USDT Crypto.
           </p>
         </div>
 
         {paymentMsg && (
           <div className={`p-4 rounded-xl text-xs font-semibold ${
-            paymentMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+            paymentMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 
+            paymentMsg.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+            'bg-blue-50 text-blue-700 border border-blue-200'
           }`}>
             {paymentMsg.text}
           </div>
@@ -130,7 +218,7 @@ function AddFundsContent() {
                 <CreditCard className="w-5 h-5 opacity-80" />
               </div>
               <div className="font-extrabold text-base">MTN MoMo, Orange Money, Cards & PayPal</div>
-              <div className="text-xs opacity-80 mt-1">Instant automatic wallet funding across all channels</div>
+              <div className="text-xs opacity-80 mt-1">Automatic verified wallet funding across all channels</div>
             </div>
             {method === 'express' && <Zap className="w-5 h-5 fill-current text-[#ff5722]" />}
           </button>
@@ -157,7 +245,7 @@ function AddFundsContent() {
           <div className="p-6 rounded-2xl bg-orange-50/30 border border-orange-100 space-y-5 text-xs">
             <div>
               <h3 className="font-bold text-gray-900 text-sm">Express Deposit Checkout</h3>
-              <p className="text-gray-500 mt-0.5">Select amount and click proceed to choose your payment method (MTN MoMo, Orange Money, Visa, Mastercard, or PayPal).</p>
+              <p className="text-gray-500 mt-0.5">Select amount and click proceed to choose your payment channel.</p>
             </div>
 
             <div className="space-y-2 max-w-md">
@@ -181,7 +269,7 @@ function AddFundsContent() {
                 <span>Supported Channels: MTN Mobile Money, Orange Money, Visa, Mastercard, PayPal</span>
               </div>
               <div className="text-[11px] text-gray-500">
-                Instant delivery. Funds are credited to your account balance automatically upon authorization.
+                Funds are credited to your account balance automatically upon PIN authorization.
               </div>
             </div>
 
@@ -211,8 +299,8 @@ function AddFundsContent() {
         {method === 'usdt' && (
           <div className="p-6 rounded-2xl bg-blue-50/40 border border-blue-100 space-y-5 text-xs">
             <div>
-              <h3 className="font-bold text-gray-900 text-sm">USDT Automated Crypto Deposit</h3>
-              <p className="text-gray-500 mt-0.5">Deposit USDT using TRC20 or BEP20 network. Equivalent XAF will be credited automatically.</p>
+              <h3 className="font-bold text-gray-900 text-sm">USDT Crypto Deposit</h3>
+              <p className="text-gray-500 mt-0.5">Deposit USDT using TRC20 or BEP20 network. Equivalent XAF will be credited automatically upon blockchain confirmation.</p>
             </div>
 
             <div className="space-y-2 max-w-md">
@@ -238,8 +326,7 @@ function AddFundsContent() {
 
             <button
               onClick={() => {
-                topUpBalance(cardAmountUsd * 600, 'crypto_usdt')
-                setPaymentMsg({ type: 'success', text: `Crypto deposit of $${cardAmountUsd} USDT (~${(cardAmountUsd * 600).toLocaleString()} XAF) initialized.` })
+                setPaymentMsg({ type: 'info', text: `Crypto deposit of $${cardAmountUsd} USDT (~${(cardAmountUsd * 600).toLocaleString()} XAF) initiated. Awaiting blockchain confirmation.` })
               }}
               className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-sm transition"
             >
@@ -398,7 +485,7 @@ function AddFundsContent() {
                 className="w-full py-4 rounded-xl bg-[#ff5722] hover:bg-[#ea580c] text-white font-extrabold text-xs shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                <span>Authorize & Pay {amountXaf.toLocaleString()} XAF</span>
+                <span>Send Payment Request ({amountXaf.toLocaleString()} XAF)</span>
               </button>
             </div>
 

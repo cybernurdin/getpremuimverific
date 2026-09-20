@@ -134,15 +134,19 @@ export default function DashboardPage() {
   const [showInsufficientBanner, setShowInsufficientBanner] = useState(false)
   const router = useRouter()
 
+  const [orderStatusMsg, setOrderStatusMsg] = useState<{ type: 'success' | 'error'; text: string; link?: string } | null>(null)
+
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setShowInsufficientBanner(false)
+    setOrderStatusMsg(null)
+
     if (!targetLink.trim()) {
-      alert('Please enter a target link, username, or order detail keywords!')
+      setOrderStatusMsg({ type: 'error', text: 'Please enter a target link, username, or order detail keywords!' })
       return
     }
     if (quantity < currentService.min || quantity > currentService.max) {
-      alert(`Quantity must be between ${currentService.min.toLocaleString()} and ${currentService.max.toLocaleString()}`)
+      setOrderStatusMsg({ type: 'error', text: `Quantity must be between ${currentService.min.toLocaleString()} and ${currentService.max.toLocaleString()}` })
       return
     }
 
@@ -165,7 +169,11 @@ export default function DashboardPage() {
 
     if (newOrder) {
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } })
-      alert(`Order #${newOrder.id} placed successfully! Check status in Orders tab.`)
+      setOrderStatusMsg({
+        type: 'success',
+        text: `Order #${newOrder.id} placed successfully!`,
+        link: '/orders'
+      })
       setTargetLink('')
     }
   }
@@ -423,6 +431,19 @@ export default function DashboardPage() {
                   <Star className="w-5 h-5 fill-current" />
                 </button>
               </div>
+
+              {orderStatusMsg && (
+                <div className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between gap-3 ${
+                  orderStatusMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  <span>{orderStatusMsg.text}</span>
+                  {orderStatusMsg.link && (
+                    <Link href={orderStatusMsg.link} className="font-extrabold text-[#ff5722] hover:underline shrink-0">
+                      View Orders &rarr;
+                    </Link>
+                  )}
+                </div>
+              )}
 
               {/* SUBMIT Button (Exact Orange matching JAP Screenshots 1, 2, 4) */}
               <button
