@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const apiUser = process.env.PAYUNIT_API_USER
     const apiPassword = process.env.PAYUNIT_API_PASSWORD
     const mode = process.env.PAYUNIT_MODE || 'live'
-    const apiKey = mode === 'live' ? (process.env.PAYUNIT_LIVE_KEY || process.env.PAYUNIT_API_KEY) : process.env.PAYUNIT_API_KEY
+    const apiKey = mode === 'live' ? process.env.PAYUNIT_LIVE_KEY : process.env.PAYUNIT_API_KEY
     if (!appId || !apiUser || !apiPassword || !apiKey) return NextResponse.json({ error: 'Payunit verification is not configured.' }, { status: 503 })
 
     const baseUrl = mode === 'live' ? 'https://gateway.payunit.net' : 'https://sandbox.payunit.net'

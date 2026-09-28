@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const apiUser = process.env.PAYUNIT_API_USER
     const apiPassword = process.env.PAYUNIT_API_PASSWORD
     const mode = process.env.PAYUNIT_MODE || 'live'
-    const apiKey = mode === 'live' ? (process.env.PAYUNIT_LIVE_KEY || process.env.PAYUNIT_API_KEY) : process.env.PAYUNIT_API_KEY
+    const apiKey = mode === 'live' ? process.env.PAYUNIT_LIVE_KEY : process.env.PAYUNIT_API_KEY
     const appUrl = process.env.NEXT_PUBLIC_APP_URL
     if (!appId || !apiUser || !apiPassword || !apiKey || !appUrl)
       return NextResponse.json({ error: 'Payunit is not fully configured. No wallet credit was created.' }, { status: 503 })
