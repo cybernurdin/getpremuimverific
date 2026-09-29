@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/smm-status",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
