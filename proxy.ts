@@ -13,4 +13,6 @@ export function proxy(request: NextRequest) {
   return NextResponse.next()
 }
 
-export const config = { matcher: '/' }
+// Match browser pages on the subdomain (including /login) while leaving API
+// webhooks on their original host untouched.
+export const config = { matcher: ['/((?!api/).*)'] }
