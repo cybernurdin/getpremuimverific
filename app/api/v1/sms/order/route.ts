@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { SMS_SERVICES } from '@/lib/mockData'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getPlatformSettings, retailPrice } from '@/lib/platform/settings'
 
 const FIVE_SIM_BASE_URL = (process.env.SMS_PROVIDER_BASE_URL || 'https://5sim.net/v1').replace(/\/$/, '')
 const COUNTRY_SLUGS: Record<string, string> = {
@@ -71,8 +72,10 @@ export async function POST(request: Request) {
     const providerProduct = PRODUCT_SLUGS[service]
     if (!catalogService || !providerCountry || !providerProduct)
       return NextResponse.json({ error: 'This SMS service or country is not supported by 5SIM.' }, { status: 400 })
-    if (Number(profile.balance_xaf) < catalogService.price)
-      return NextResponse.json({ error: 'Insufficient wallet balance.', required_xaf: catalogService.price }, { status: 402 })
+    const settings = await getPlatformSettings(admin)
+    const priceXaf = retailPrice(catalogService.price, settings.sms_markup_multiplier)
+    if (Number(profile.balance_xaf) < priceXaf)
+      return NextResponse.json({ error: 'Insufficient wallet balance.', required_xaf: priceXaf }, { status: 402 })
 
     const providerRes = await fetch(
       `${FIVE_SIM_BASE_URL}/user/buy/activation/${encodeURIComponent(providerCountry)}/any/${encodeURIComponent(providerProduct)}`,
@@ -85,12 +88,12 @@ export async function POST(request: Request) {
     const { data: order, error: orderError } = await admin.from('sms_orders').insert({
       profile_id: profile.id, provider_order_id: String(providerOrder.id), service_name: catalogService.name,
       service_code: service, country_name: country, country_code: country, phone_number: providerOrder.phone,
-      price_xaf: catalogService.price, status: 'waiting_sms', expires_at: providerOrder.expires || new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+      price_xaf: priceXaf, status: 'waiting_sms', expires_at: providerOrder.expires || new Date(Date.now() + 20 * 60 * 1000).toISOString(),
     }).select().single()
     if (orderError) throw orderError
 
     const { error: transactionError } = await admin.from('wallet_transactions').insert({
-      profile_id: profile.id, amount: catalogService.price, type: 'sms_purchase', payment_method: 'mtn_momo',
+      profile_id: profile.id, amount: priceXaf, type: 'sms_purchase', payment_method: 'mtn_momo',
       reference: `SMS-${order.id}`, status: 'completed', description: `5SIM ${catalogService.name} activation`,
     })
     if (transactionError) throw transactionError

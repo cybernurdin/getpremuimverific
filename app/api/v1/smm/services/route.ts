@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import liveServices from '@/lib/liveServices.json'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getPlatformSettings, retailPrice } from '@/lib/platform/settings'
 
 export async function GET(request: Request) {
   try {
@@ -25,11 +27,17 @@ export async function GET(request: Request) {
     // Extract unique category names
     const categories = Array.from(new Set((liveServices as any[]).map((s) => s.category)))
 
+    const settings = await getPlatformSettings(createAdminClient())
+    const pricedServices = services.map((service) => ({
+      ...service,
+      retail_rate_xaf: retailPrice(Number(service.rate_usd) * 600, settings.smm_markup_multiplier),
+    }))
+
     return NextResponse.json({
       total: services.length,
       categories_count: categories.length,
       categories,
-      services
+      services: pricedServices
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to fetch SMM services' }, { status: 500 })

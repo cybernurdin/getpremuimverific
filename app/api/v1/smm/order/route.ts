@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import liveServices from '@/lib/liveServices.json'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getPlatformSettings, retailPrice } from '@/lib/platform/settings'
 
 export async function POST(request: Request) {
   try {
@@ -20,7 +21,9 @@ export async function POST(request: Request) {
     if (profileError || !profile) return NextResponse.json({ error: 'Your wallet profile is unavailable. Please sign in again.' }, { status: 409 })
 
     // Prices from the browser are never trusted.
-    const chargeXaf = Math.ceil(Number(service.rate_usd) * (Number(quantity) / 1000) * 600 * 1.25)
+    const settings = await getPlatformSettings(admin)
+    const providerCostXaf = Number(service.rate_usd) * (Number(quantity) / 1000) * 600
+    const chargeXaf = retailPrice(providerCostXaf, settings.smm_markup_multiplier)
     if (Number(profile.balance_xaf) < chargeXaf)
       return NextResponse.json({ error: 'Insufficient wallet balance.', required_xaf: chargeXaf }, { status: 402 })
 
