@@ -34,10 +34,11 @@ export async function GET(request: Request) {
   const { data: transaction } = link.payment_reference
     ? await admin.from('wallet_transactions').select('status').eq('reference', link.payment_reference).maybeSingle()
     : { data: null }
+  const { data: manualClaim } = await admin.from('manual_payment_claims').select('status').eq('bot_payment_link_id', link.id).maybeSingle()
   return NextResponse.json({
     amount_xaf: Number(link.amount_xaf),
     expires_at: link.expires_at,
-    status: transaction?.status || 'ready',
+    status: transaction?.status || (manualClaim?.status === 'pending' ? 'manual_pending' : manualClaim?.status || 'ready'),
   })
 }
 
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
     if (!payunit) return NextResponse.json({ error: 'Payments are not configured yet. Please try again later.' }, { status: 503 })
     const admin = createAdminClient()
     const amount = Math.round(Number(link.amount_xaf))
+
+    const { data: manualClaim } = await admin.from('manual_payment_claims').select('id').eq('bot_payment_link_id', link.id).maybeSingle()
+    if (manualClaim) return NextResponse.json({ error: 'This payment was submitted for manual verification. Please wait for confirmation or request a new link from the bot.' }, { status: 409 })
 
     if (link.payment_reference) {
       const { data: existing } = await admin.from('wallet_transactions').select('status').eq('reference', link.payment_reference).maybeSingle()

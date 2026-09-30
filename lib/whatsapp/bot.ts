@@ -8,6 +8,7 @@ import { fetchFiveSimCountries, fetchFiveSimProducts, fetchFiveSimQuote } from '
 import { getOrCreateWhatsAppCustomer } from '@/lib/bots/customers'
 import { getPlatformSettings, retailPrice } from '@/lib/platform/settings'
 import { createBotCheckoutLink } from '@/lib/bots/checkout'
+import { checkLatestBotSms, reserveLiveBotSms } from '@/lib/bots/sms'
 
 export interface WhatsAppMessagePayload {
   from: string
@@ -126,7 +127,7 @@ async function liveProductQuote(countryInput: string, productInput: string) {
   const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const settings = adminUrl && adminKey ? await getPlatformSettings(createClient(adminUrl, adminKey)) : { sms_markup_multiplier: 3 }
   const price = retailPrice(quote.costUsd * 600, settings.sms_markup_multiplier)
-  return `*${friendlyProductName(product)} verification number*\n\nCountry: ${country.label}\nCurrent price: *${price.toLocaleString()} XAF*\nAvailable now: ${quote.available.toLocaleString()}\n\nTo reserve this number, sign in, add funds, then complete the order from the Temporary Numbers page.`
+  return `*${friendlyProductName(product)} verification number*\n\nCountry: ${country.label}\nCurrent price: *${price.toLocaleString()} XAF*\nAvailable now: ${quote.available.toLocaleString()}\n\nTap *Reserve number* to use your wallet.` + listMarker('Reserve number', 'Confirm reservation', [{ id: `reserve:${country.slug}:${encodeURIComponent(product)}`, title: 'Reserve number', description: `${price.toLocaleString()} XAF from wallet` }])
 }
 
 async function getProfileFromSupabase(identifier: string) {
@@ -183,13 +184,7 @@ async function allocateSmsNumber(service: string, country: string) {
     }
   }
 
-  const randomDigits = Math.floor(100000000 + Math.random() * 900000000)
-  const prefixes: Record<string, string> = { 
-    US: '+1 (407)', GB: '+44 7911', CA: '+1 (604)', CM: '+237 677', NG: '+234 803', FR: '+33 644' 
-  }
-  const phone = `${prefixes[country.toUpperCase()] || '+1 (555)'} ${randomDigits}`
-  const id = `sms_${Math.random().toString(36).substring(2, 9)}`
-  return { id, phone, service, country }
+  return null
 }
 
 async function placeSmmOrder(serviceId: number, link: string, quantity: number) {
@@ -219,8 +214,7 @@ async function placeSmmOrder(serviceId: number, link: string, quantity: number) 
     }
   }
 
-  const orderId = Math.floor(100000 + Math.random() * 900000)
-  return { order: orderId, serviceId, link, quantity }
+  return null
 }
 
 export async function processWhatsAppMessage(payload: WhatsAppMessagePayload): Promise<string> {
@@ -235,6 +229,14 @@ export async function processWhatsAppMessage(payload: WhatsAppMessagePayload): P
   // profile on first contact, then use that same profile on every message.
   const userProfile = await getOrCreateWhatsAppCustomer(userPhone, payload.name)
   const currentBalance = userProfile ? Number(userProfile.balance_xaf) || 0 : 0
+
+  if (lowerText === 'check code' || lowerText === 'sms status' || lowerText === 'check sms') {
+    if (!userProfile) return 'Your customer wallet is unavailable. Please try again in a moment.'
+    const status = await checkLatestBotSms(userProfile.id)
+    if (status.kind === 'received') return `*Your verification code:* \`${status.code}\``
+    if (status.kind === 'waiting') return `Your number is still waiting for the SMS code. Please try \`check code\` again shortly.${status.expiresAt ? ` It expires at ${new Date(status.expiresAt).toLocaleTimeString()}.` : ''}`
+    return status.message
+  }
 
   // 1. GREETING / MAIN MENU COMMAND
   const isReset = 
@@ -321,6 +323,17 @@ export async function processWhatsAppMessage(payload: WhatsAppMessagePayload): P
   if (countryReply) return liveServiceMenu(countryReply[1])
   const serviceReply = text.match(/^service:([a-z0-9_-]+):(.+)$/i)
   if (serviceReply) return liveProductQuote(serviceReply[1], serviceReply[2])
+  const reserveReply = text.match(/^reserve:([a-z0-9_-]+):(.+)$/i)
+  if (reserveReply) {
+    if (!userProfile) return 'Your customer wallet is unavailable. Please try again in a moment.'
+    const reservation = await reserveLiveBotSms(userProfile.id, reserveReply[1], reserveReply[2])
+    if (reservation.kind === 'success') return `*Verification number reserved*\n\nNumber: \`${reservation.phone}\`\nService: ${friendlyProductName(reservation.service)}\nCountry: ${reservation.country}\nCharged: ${reservation.priceXaf.toLocaleString()} XAF\n\nWhen the SMS arrives, reply \`check code\`.`
+    if (reservation.kind === 'insufficient') {
+      const topupUrl = await getPayunitCheckoutUrl(userProfile.id, reservation.requiredXaf - reservation.balanceXaf)
+      return `Your wallet needs ${reservation.requiredXaf.toLocaleString()} XAF; current balance is ${reservation.balanceXaf.toLocaleString()} XAF.${topupUrl ? `\n\nTop up securely: ${topupUrl}` : ''}`
+    }
+    return reservation.message
+  }
   const pageMatch = lowerText.match(/^(?:page|countries)\s+(\d+)$/)
   if (pageMatch) return liveCountryMenu(Number(pageMatch[1]))
   const moreMatch = lowerText.match(/^(?:more|services)\s+([a-z\s-]+?)(?:\s+(\d+))?$/)
@@ -423,6 +436,7 @@ export async function processWhatsAppMessage(payload: WhatsAppMessagePayload): P
 
     userSessions[userPhone] = { step: 'MAIN' }
     const result = await allocateSmsNumber(service, country)
+    if (!result) return 'The live verification-number service could not reserve a number. No wallet funds were charged. Please try again shortly.'
 
     // Deduct balance from DB profile if present
     if (userProfile) {
@@ -572,6 +586,7 @@ export async function processWhatsAppMessage(payload: WhatsAppMessagePayload): P
     if (link && quantity > 0) {
       userSessions[userPhone] = { step: 'MAIN' }
       const res = await placeSmmOrder(serviceId, link, quantity)
+      if (!res) return 'The live social-media service could not accept this order. No wallet funds were charged. Please try again shortly.'
 
       // Deduct balance from DB profile if present
       if (userProfile) {
