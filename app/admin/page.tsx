@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [saving, setSaving] = useState(false)
+  const [syncingCatalog, setSyncingCatalog] = useState(false)
   const [expense, setExpense] = useState({ kind: 'provider_cost', amount_xaf: '', description: '', reference: '' })
   const [settings, setSettings] = useState<Overview['settings'] | null>(null)
 
@@ -97,6 +98,20 @@ export default function AdminPage() {
     }
   }
 
+  const syncCatalogue = async () => {
+    setSyncingCatalog(true)
+    try {
+      const response = await fetch('/api/admin/catalog/sync', { method: 'POST' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not sync the live JAP catalogue.')
+      setError(`Live JAP catalogue refreshed: ${result.synced} services.`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not sync the live JAP catalogue.')
+    } finally {
+      setSyncingCatalog(false)
+    }
+  }
+
   if (loading) return <div className="min-h-screen grid place-items-center bg-slate-950 text-white"><Loader2 className="w-7 h-7 animate-spin" /></div>
   if (error && !data) return <div className="min-h-screen grid place-items-center bg-slate-950 p-6"><div className="max-w-md rounded-2xl bg-white p-7 text-center"><ShieldCheck className="mx-auto text-orange-600 w-10 h-10 mb-3" /><h1 className="font-extrabold text-xl">Administrator portal</h1><p className="text-sm text-gray-600 mt-2">{error}</p><p className="text-xs text-gray-500 mt-4">Sign in with a profile whose role is <code>admin</code>.</p></div></div>
   if (!data) return null
@@ -132,6 +147,11 @@ export default function AdminPage() {
           <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5"><Banknote className="text-orange-400 w-5 h-5" /><p className="text-2xl font-black mt-3">{xaf(data.metrics.pending_payments_xaf)}</p><p className="text-sm text-slate-400">{data.metrics.pending_payments_count} pending payment(s)</p></div>
           <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5"><ClipboardList className="text-sky-400 w-5 h-5" /><p className="text-2xl font-black mt-3">{data.metrics.active_smm_orders}</p><p className="text-sm text-slate-400">SMM orders pending provider completion</p></div>
           <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5"><Users className="text-violet-400 w-5 h-5" /><p className="text-2xl font-black mt-3">{data.metrics.customers}</p><p className="text-sm text-slate-400">Registered customer profiles</p></div>
+        </section>
+
+        <section className="rounded-2xl bg-slate-900 border border-slate-800 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div><h2 className="font-extrabold">Live provider catalogue</h2><p className="text-xs text-slate-400 mt-1">Pull the current JAP services, limits, and supplier rates into Supabase. Customer prices use your SMM multiplier, and checkout verifies JAP again immediately before charging.</p></div>
+          <button type="button" onClick={() => void syncCatalogue()} disabled={syncingCatalog} className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 px-4 py-3 font-bold text-sm"><RefreshCw className={`w-4 h-4 ${syncingCatalog ? 'animate-spin' : ''}`} />{syncingCatalog ? 'Syncing catalogue…' : 'Sync JAP catalogue'}</button>
         </section>
 
         <section className="grid lg:grid-cols-[1.2fr_.8fr] gap-6">

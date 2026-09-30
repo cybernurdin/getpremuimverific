@@ -3,6 +3,7 @@ import { SMS_SERVICES } from '@/lib/mockData'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlatformSettings, retailPrice } from '@/lib/platform/settings'
+import { fetchFiveSimQuote } from '@/lib/providers/fivesim'
 
 const FIVE_SIM_BASE_URL = (process.env.SMS_PROVIDER_BASE_URL || 'https://5sim.net/v1').replace(/\/$/, '')
 const COUNTRY_SLUGS: Record<string, string> = {
@@ -14,7 +15,7 @@ const PRODUCT_SLUGS: Record<string, string> = {
   oa: 'openai', nf: 'netflix', pp: 'paypal', ds: 'discord', tw: 'twitter', td: 'tinder',
 }
 type FiveSimSms = { code?: string; text?: string }
-type FiveSimOrder = { id?: number; phone?: string; status?: string; expires?: string; sms?: FiveSimSms[] }
+type FiveSimOrder = { id?: number; phone?: string; status?: string; expires?: string; price?: number; sms?: FiveSimSms[] }
 
 function fiveSimHeaders(token: string) {
   return { Authorization: `Bearer ${token}`, Accept: 'application/json' }
@@ -72,13 +73,21 @@ export async function POST(request: Request) {
     const providerProduct = PRODUCT_SLUGS[service]
     if (!catalogService || !providerCountry || !providerProduct)
       return NextResponse.json({ error: 'This SMS service or country is not supported by 5SIM.' }, { status: 400 })
+    // 5SIM's public catalogue provides the current cost and available quantity for
+    // each country/product/operator. Select the cheapest available live operator;
+    // the browser's displayed price is never used for charging.
+    const quote = await fetchFiveSimQuote(FIVE_SIM_BASE_URL, providerCountry, providerProduct)
+    if (!quote)
+      return NextResponse.json({ error: '5SIM has no number available for this service and country. No funds were charged.' }, { status: 409 })
+
     const settings = await getPlatformSettings(admin)
-    const priceXaf = retailPrice(catalogService.price, settings.sms_markup_multiplier)
+    const providerCostXaf = quote.costUsd * 600
+    const priceXaf = retailPrice(providerCostXaf, settings.sms_markup_multiplier)
     if (Number(profile.balance_xaf) < priceXaf)
       return NextResponse.json({ error: 'Insufficient wallet balance.', required_xaf: priceXaf }, { status: 402 })
 
     const providerRes = await fetch(
-      `${FIVE_SIM_BASE_URL}/user/buy/activation/${encodeURIComponent(providerCountry)}/any/${encodeURIComponent(providerProduct)}`,
+      `${FIVE_SIM_BASE_URL}/user/buy/activation/${encodeURIComponent(providerCountry)}/${encodeURIComponent(quote.operator)}/${encodeURIComponent(providerProduct)}`,
       { headers: fiveSimHeaders(token), signal: AbortSignal.timeout(20_000) },
     )
     const providerOrder = await providerRes.json().catch(() => ({})) as FiveSimOrder & { error?: string }
@@ -94,7 +103,7 @@ export async function POST(request: Request) {
 
     const { error: transactionError } = await admin.from('wallet_transactions').insert({
       profile_id: profile.id, amount: priceXaf, type: 'sms_purchase', payment_method: 'mtn_momo',
-      reference: `SMS-${order.id}`, status: 'completed', description: `5SIM ${catalogService.name} activation`,
+      reference: `SMS-${order.id}`, status: 'completed', description: `5SIM ${catalogService.name} activation via ${quote.operator}`,
     })
     if (transactionError) throw transactionError
 
