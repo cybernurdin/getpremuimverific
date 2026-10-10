@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getPayunitConfig, paymentErrorMessage, PayunitStatusResponse } from '@/lib/payments/payunit'
 
 export const dynamic = 'force-dynamic'
+const MINIMUM_TOPUP_XAF = 3000
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
 
     const inputCurrency = currency.toUpperCase() as SupportedCurrency
     const xafAmount = inputCurrency === 'USD' ? Math.round(convertCurrency(amount, 'USD', 'XAF')) : Math.round(amount)
+    if (xafAmount < MINIMUM_TOPUP_XAF) return NextResponse.json({ error: 'The minimum wallet deposit is 3,000 XAF (about US$5).' }, { status: 400 })
     const payunit = getPayunitConfig()
     if (!payunit)
       return NextResponse.json({ error: 'Payunit is not fully configured. No wallet credit was created.' }, { status: 503 })

@@ -11,6 +11,7 @@ import { PublicHeader } from '@/components/PublicHeader'
 import { PublicFooter } from '@/components/PublicFooter'
 import { DepositModal } from '@/components/DepositModal'
 import { WhatsAppButton } from '@/components/WhatsAppButton'
+import { AnalyticsTracker } from '@/components/AnalyticsTracker'
 
 export default function RootLayout({
   children,
@@ -42,6 +43,7 @@ export default function RootLayout({
       </head>
       <body className="bg-[#f8fafc] text-gray-900 min-h-screen font-sans antialiased">
         <AppStateProvider>
+          <AnalyticsTracker />
           {isAdminPage ? (
             <main className="min-h-screen">{children}</main>
           ) : isPublicPage ? (
