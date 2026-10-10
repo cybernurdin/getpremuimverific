@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { scheduleAdminNotifications } from '@/lib/notifications/admin-email'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlatformSettings, getSmmPriceOverrides, smmRetailRateXaf } from '@/lib/platform/settings'
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       reference: `SMM-${order.id}`, status: 'completed', description: `Live provider order ${providerData.order}`
     })
     if (transactionError) throw transactionError
+    scheduleAdminNotifications(admin)
 
     return NextResponse.json({ order, provider_order_id: String(providerData.order), charge_xaf: chargeXaf }, { status: 201 })
   } catch (e: any) {

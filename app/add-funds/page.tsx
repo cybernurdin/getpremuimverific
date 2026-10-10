@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, CreditCard, Loader2, ShieldCheck, Smartpho
 import { useSearchParams } from 'next/navigation'
 import { useAppState } from '@/lib/store'
 import { recordAnalytics } from '@/components/AnalyticsTracker'
+import CryptoDepositPanel from '@/components/CryptoDepositPanel'
 
 type Notice = { type: 'success' | 'error' | 'info'; text: string }
 
@@ -131,6 +132,8 @@ function AddFundsContent() {
           </button>
         </div>
       </section>
+
+      <CryptoDepositPanel key={profile.id} profileId={profile.id} />
 
       <p className="text-center text-xs text-gray-500">Wallet: {Number(profile.balance_xaf || 0).toLocaleString()} XAF · MTN MoMo, Orange Money, card, and other channels shown by Payunit at checkout.</p>
     </div>

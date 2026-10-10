@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { convertCurrency, SupportedCurrency } from '@/lib/currency'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { scheduleAdminNotifications } from '@/lib/notifications/admin-email'
 import { getPayunitConfig, paymentErrorMessage, PayunitStatusResponse } from '@/lib/payments/payunit'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
       status: 'pending', description: 'Payunit wallet top-up awaiting payment confirmation',
     })
     if (pendingError) throw pendingError
+    scheduleAdminNotifications(admin)
 
     const paymentResponse = await fetch(`${payunit.baseUrl}/api/gateway/initialize`, {
       method: 'POST', headers: payunit.headers,
@@ -86,6 +88,7 @@ export async function GET(request: Request) {
     if (isCompleted && transaction.status === 'pending') {
       const { error } = await admin.from('wallet_transactions').update({ status: 'completed' }).eq('id', transaction.id).eq('status', 'pending')
       if (error) throw error
+      scheduleAdminNotifications(admin)
     }
     return NextResponse.json({ status: isCompleted ? 'completed' : transaction.status, credited: isCompleted })
   } catch (error: unknown) {

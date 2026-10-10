@@ -42,11 +42,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body className="bg-[#f8fafc] text-gray-900 min-h-screen font-sans antialiased">
-        <AppStateProvider>
+        {isAdminPage ? <main className="min-h-screen">{children}</main> : <AppStateProvider>
           <AnalyticsTracker />
-          {isAdminPage ? (
-            <main className="min-h-screen">{children}</main>
-          ) : isPublicPage ? (
+          {isPublicPage ? (
             /* Public Website Page View (Header, Body, Public Footer) */
             <div className="min-h-screen flex flex-col justify-between bg-white">
               <PublicHeader />
@@ -90,7 +88,7 @@ export default function RootLayout({
             isOpen={isDepositOpen}
             onClose={() => setIsDepositOpen(false)}
           />}
-        </AppStateProvider>
+        </AppStateProvider>}
       </body>
     </html>
   )

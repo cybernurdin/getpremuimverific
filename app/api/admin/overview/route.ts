@@ -19,7 +19,7 @@ export async function GET() {
       access.admin.from('sms_orders').select('id, profile_id, service_name, country_name, price_xaf, status, created_at').order('created_at', { ascending: false }).limit(500),
       access.admin.from('account_orders').select('id, profile_id, item_title, category, price_xaf, status, created_at').order('created_at', { ascending: false }).limit(500),
       access.admin.from('financial_entries').select('id, kind, amount_xaf, description, reference, created_at').order('created_at', { ascending: false }).limit(250),
-      access.admin.from('manual_payment_claims').select('id, profile_id, amount_xaf, payment_method, payer_phone, transfer_reference, status, created_at').order('created_at', { ascending: false }).limit(200),
+      access.admin.from('manual_payment_claims').select('*').order('created_at', { ascending: false }).limit(200),
       getPlatformSettings(access.admin),
       access.admin.from('audit_events').select('event_type, session_id, path, created_at').order('created_at', { ascending: false }).limit(1000),
     ])

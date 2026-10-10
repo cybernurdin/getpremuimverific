@@ -18,6 +18,7 @@ export default function AdminPricingPage() {
     setLoading(true)
     const response = await fetch('/api/admin/catalog/pricing', { cache: 'no-store' })
     const result = await response.json()
+    if (response.status === 401 || response.status === 403) { window.location.replace('/admin/login'); return }
     if (!response.ok) setError(result.error || 'Could not load prices.')
     else {
       setServices(result.services)

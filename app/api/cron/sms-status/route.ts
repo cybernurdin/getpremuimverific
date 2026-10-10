@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncSmsOrder } from '@/lib/sms/sync'
+import { scheduleAdminNotifications } from '@/lib/notifications/admin-email'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   }
   try {
     const admin = createAdminClient()
+    scheduleAdminNotifications(admin)
     const { data: orders, error } = await admin.from('sms_orders')
       .select('id, provider_order_id, phone_number, service_name, profile_id')
       .eq('status', 'waiting_sms').not('provider_order_id', 'is', null).limit(100)
