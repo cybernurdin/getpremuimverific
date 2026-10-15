@@ -2,6 +2,16 @@
 
 ## Name and public presentation — 15 October 2026
 
+Verified signed artifact: EAS `b14612da-8152-4cd6-8c00-6c677b8fb7e3`, version
+0.1.0 / versionCode 6, 72,809,304 bytes. SHA-256:
+`266291237a175486b4353d9f46300430e6797bbedf804f20529749fbc0818859`.
+`aapt` reports `application-label:'premiumverific'`; the adaptive launcher
+foreground was extracted and visually checked against the PV mark. APK v2
+signature verifies and certificate SHA-256 matches build 3:
+`539da41782995ed2ee22205cce9a8ec662a647c266ab3d4dca404ff91b7fc425`.
+The APK is not debuggable. This is artifact verification, not a new live-payment
+acceptance test.
+
 The requested app display name is `premiumverific`; the Android package remains
 `com.premiumverify.app` so existing installs can upgrade with the same signing
 key. Build 6 adds the PV logo to the login screen and panel header and keeps the

@@ -3,6 +3,8 @@ import AppShell from '@/components/AppShell'
 import './globals.css'
 export const metadata: Metadata = {
   metadataBase: new URL('https://premiumverific.com'),
+  applicationName: 'premiumverific',
+  appleWebApp: { title: 'premiumverific', capable: true, statusBarStyle: 'default' },
   title: { default: 'Premium Verific', template: '%s | Premium Verific' },
   description: 'Virtual SMS numbers, social media services and customer support from Premium Verific.',
   robots: { index: false, follow: false },
