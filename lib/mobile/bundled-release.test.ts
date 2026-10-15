@@ -9,3 +9,8 @@ test('verified bundled APK uses a same-origin URL and beta label',()=>{
 test('unavailable, unsafe or incomplete bundles do not enable a download',()=>{
  for(const change of [{available:false},{filename:'../secret.apk'},{url:'https://evil.example/app.apk'},{checksum:'invalid'},{versionCode:0},{sizeBytes:0},{version:'soon'}])assert.equal(bundledAndroidRelease({...release,...change}),null)
 })
+test('friendly premiumverific APK name remains same-origin and checksum-validated',()=>{
+ const friendly={...release,filename:'premiumverific.apk',url:'/downloads/premiumverific.apk'}
+ assert.equal(bundledAndroidRelease(friendly)?.filename,'premiumverific.apk')
+ assert.equal(bundledAndroidRelease({...friendly,filename:'other.apk'}),null)
+})

@@ -1,5 +1,15 @@
 # Release and website downloads
 
+## Name and public presentation — 15 October 2026
+
+The requested app display name is `premiumverific`; the Android package remains
+`com.premiumverify.app` so existing installs can upgrade with the same signing
+key. Build 6 adds the PV logo to the login screen and panel header and keeps the
+existing branded launcher/adaptive icons. The public download filename is
+`premiumverific.apk`. The website's beta banner/badge were removed at the owner's
+request. This presentation change does not waive the documented acceptance tests
+or paid-launch blockers. The older build-3 notes below are historical.
+
 ## Android beta build 3 — 14 October 2026
 
 The owner requested direct website APK distribution. EAS build `1c7902ef-646b-4c4d-9ba3-99f20b106f5f` finished: version 0.1.0, versionCode 3, package `com.premiumverify.app`, 72,693,196 bytes. APK Signature Scheme v2 verifies, its signing certificate SHA-256 matches build 2 (`539da41782995ed2ee22205cce9a8ec662a647c266ab3d4dca404ff91b7fc425`), and its package is not debuggable. Binary SHA-256: `8c232b8f5885bf5bcb95403b7776696883307db915c1dada4d833127a8433915`.

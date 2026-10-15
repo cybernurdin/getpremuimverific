@@ -6,7 +6,7 @@ import {Readable} from 'node:stream'
 import {pipeline} from 'node:stream/promises'
 const release=JSON.parse(await readFile('lib/mobile/android-release.json','utf8'))
 if(!release.available){console.log('No bundled Android release has been approved yet.');process.exit(0)}
-if(!/^premium-verific-[a-zA-Z0-9.-]+\.apk$/.test(release.filename)||release.url!==`/downloads/${release.filename}`||!/^[a-f0-9]{64}$/.test(release.checksum)||!Number.isInteger(release.sizeBytes)||release.sizeBytes<=0)throw new Error('Invalid bundled APK manifest.')
+if(!(release.filename==='premiumverific.apk'||/^premium-verific-[a-zA-Z0-9.-]+\.apk$/.test(release.filename))||release.url!==`/downloads/${release.filename}`||!/^[a-f0-9]{64}$/.test(release.checksum)||!Number.isInteger(release.sizeBytes)||release.sizeBytes<=0)throw new Error('Invalid bundled APK manifest.')
 const source=new URL(release.sourceUrl)
 if(source.protocol!=='https:'||source.hostname!=='github.com'||!source.pathname.startsWith('/cybernurdin/getpremuimverific/releases/download/')||!source.pathname.endsWith(`/${release.filename}`)||source.username||source.password||source.search)throw new Error('APK source must be the approved public GitHub release asset.')
 const target=`public/downloads/${release.filename}`
