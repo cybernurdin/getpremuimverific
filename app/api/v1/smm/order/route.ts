@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       getPlatformSettings(admin),
       getSmmPriceOverrides(admin, [service.serviceId]),
     ])
-    const retailRateXaf = smmRetailRateXaf(service.rateUsd, settings.smm_markup_multiplier, priceOverrides.get(service.serviceId))
+    const retailRateXaf = smmRetailRateXaf(service.rateUsd, settings.smm_markup_multiplier, priceOverrides.get(service.serviceId), settings.extra_service_markup_percent)
     const chargeXaf = Math.ceil((retailRateXaf * Number(quantity)) / 1000)
     const smmApiKey = process.env.SMM_PROVIDER_API_KEY
     const smmApiUrl = process.env.SMM_PROVIDER_API_URL

@@ -45,7 +45,7 @@ export async function reserveLiveBotSms(profileId: string, countryInput: string,
 
     const quote = await fetchFiveSimQuote(baseUrl, country.slug, product)
     if (!quote) return { kind: 'unavailable', message: 'This verification number is no longer available. Please choose another service.' }
-    const priceXaf = retailPrice(quote.costUsd * 600, settings.sms_markup_multiplier)
+    const priceXaf = retailPrice(quote.costUsd * 600, settings.sms_markup_multiplier, settings.extra_service_markup_percent)
     const balanceXaf = Number(profileResult.data.balance_xaf || 0)
     if (balanceXaf < priceXaf) return { kind: 'insufficient', requiredXaf: priceXaf, balanceXaf }
 
@@ -129,12 +129,15 @@ export async function checkLatestBotSms(profileId: string): Promise<BotSmsStatus
     if (!response.ok) return { kind: 'error', message: provider.error || 'Could not check the SMS code right now.' }
     const code = provider.sms?.find((sms) => sms.code)?.code
     if (code) {
-      await admin.from('sms_orders').update({ sms_code: code, status: 'received' }).eq('id', order.id)
+      const { error: saveError } = await admin.from('sms_orders').update({ sms_code: code, status: 'received' }).eq('id', order.id).eq('status', 'waiting_sms')
+      if (saveError) return { kind: 'error', message: 'The supplier returned a code but saving it failed. Please retry shortly.' }
       await fetch(`${baseUrl}/user/finish/${encodeURIComponent(order.provider_order_id)}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } }).catch(() => undefined)
       return { kind: 'received', code }
     }
-    if (['CANCELED', 'BANNED', 'FINISHED'].includes(String(provider.status || '').toUpperCase())) {
-      await admin.from('sms_orders').update({ status: 'canceled' }).eq('id', order.id)
+    const supplierStatus = String(provider.status || '').toUpperCase()
+    if (['CANCELED', 'BANNED', 'TIMEOUT'].includes(supplierStatus) && Array.isArray(provider.sms) && provider.sms.length === 0) {
+      const { error: closeError } = await admin.from('sms_orders').update({ status: supplierStatus === 'TIMEOUT' ? 'expired' : 'canceled' }).eq('id', order.id).eq('status', 'waiting_sms')
+      if (closeError) return { kind: 'error', message: 'Could not update this number’s status. Please retry shortly.' }
       return { kind: 'ended', message: 'This verification-number request has ended without a code.' }
     }
     return { kind: 'waiting', expiresAt: provider.expires || order.expires_at }

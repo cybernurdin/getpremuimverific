@@ -14,6 +14,8 @@ const sources = [
   'daily-topup-minimum-upgrade.sql',
   'customer-support-number-upgrade.sql',
   'wallet-purchase-safety-upgrade.sql',
+  'admin-wallet-credit-upgrade.sql',
+  'service-markup-upgrade.sql',
 ]
 
 const ecbResponse = await fetch('https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?lastNObservations=1&format=csvdata', {
